@@ -1,0 +1,11 @@
+[{:itonami.blueprint/id "cloud-itonami-isco-4419"
+  :itonami.blueprint/name "Community Clerical Support"
+  :itonami.blueprint/isco-08 "4419"
+  :itonami.blueprint/domain :office/clerical-nec
+  :itonami.blueprint/license "AGPL-3.0-or-later"
+  :itonami.blueprint/social-impact [:service-access :small-business-support :local-jobs]
+  :itonami.blueprint/governor :clerical-nec-governor
+  :itonami.blueprint/robotics true
+  :itonami.blueprint/required-technologies [:robotics :identity :forms :dmn :bpmn :audit-ledger]
+  :itonami.blueprint/status :public-oss
+  :db/id -1}]
