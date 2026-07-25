@@ -9,7 +9,10 @@
   A proposal: {:op :approve-destruction|:approve-access|:approve-early-destruction
                :effect :propose :record-id str :as-of-day int
                :requester-clearance-level :public|:internal|:confidential
-               :stake kw :confidence n :rationale str}")
+               :stake kw :confidence n :rationale str}"
+  ;; clojure.edn, not clojure.core/read-string: this parses untrusted
+  ;; advisor output, and the core reader executes #=(...) at read time.
+  (:require [clojure.edn :as edn]))
 
 (defprotocol Advisor
   (-advise [advisor store request] "request -> proposal map"))
@@ -38,7 +41,7 @@
 
 (defn- parse-proposal [content]
   (try
-    (let [p (read-string content)]
+    (let [p (edn/read-string content)]
       (if (map? p)
         (assoc p :effect :propose)
         {:op :unknown :effect :propose :confidence 0.0 :stake :high
