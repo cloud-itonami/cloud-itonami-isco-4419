@@ -42,3 +42,33 @@
     (let [resumed (actor/approve! graph "thread-3")]
       (is (= :done (:status resumed)))
       (is (= 1 (count (store/records-of st "client-1")))))))
+
+;; The graph must HOLD on an uncomparable operand, not throw through the
+;; `:govern` node. Measured 2026-09-10 on the version before this: an
+;; off-scale `:requester-clearance-level` raised a NullPointerException
+;; inside `:govern`, so the run died before `:decide` — the request was
+;; neither committed nor held, and **nothing reached the ledger**. A
+;; crash is not a refusal; from the ledger's side it is indistinguishable
+;; from a request that was never made.
+
+(deftest holds-a-destruction-with-no-day-and-says-why
+  (let [st (fresh-store)
+        graph (actor/build-graph {:store st})
+        request {:client-id "client-1" :op :approve-destruction :stake :low
+                 :record-id "R-1"}
+        result (actor/run-request! graph request {} "thread-4")]
+    (is (= :hold (:disposition (:state result))))
+    (is (empty? (store/records-of st "client-1")))
+    (is (some #(= :retention-unverifiable (:rule %))
+              (mapcat #(get-in % [:verdict :violations]) (store/ledger st))))))
+
+(deftest holds-an-off-scale-clearance-instead-of-throwing
+  (let [st (fresh-store)
+        graph (actor/build-graph {:store st})
+        request {:client-id "client-1" :op :approve-access :stake :low
+                 :record-id "R-1" :requester-clearance-level :secret}
+        result (actor/run-request! graph request {} "thread-5")]
+    (is (= :hold (:disposition (:state result))))
+    (is (empty? (store/records-of st "client-1")))
+    (is (some #(= :clearance-unverifiable (:rule %))
+              (mapcat #(get-in % [:verdict :violations]) (store/ledger st))))))

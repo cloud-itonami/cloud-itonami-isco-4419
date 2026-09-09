@@ -9,7 +9,7 @@ eligible for actor implementation now.
 ClericalSupportWorkersGovernor as a langgraph StateGraph
 (`intake → advise → govern → decide → commit/hold`, human-approval
 interrupt), modeled on cloud-itonami-isco-4311's bookkeeping actor.
-15 tests / 29 assertions green.
+25 tests / 53 assertions green.
 
 The records-management HARD invariants — an interval floor and an
 ordinal scale, neither discretionary:
@@ -21,6 +21,19 @@ ordinal scale, neither discretionary:
    must be ordinally ≥ the record's registered required level
    (:public < :internal < :confidential) — access control is ordinal,
    not discretion.
+
+3. **Comparability** — a floor that cannot be compared is not a floor
+   that has been met. Both invariants above are comparisons, and until
+   2026-09-10 each was guarded by its own operand's presence test, so a
+   proposal that simply **omitted** `:as-of-day` or
+   `:requester-clearance-level` skipped the comparison and reached the
+   human with `:violations []` — and an off-scale clearance level threw
+   out of the `:govern` node instead of holding, so nothing reached the
+   ledger at all. Uncomparable operands are now HARD refusals
+   (`:retention-unverifiable` / `:clearance-unverifiable`), kept
+   deliberately distinct from `:retention-not-expired` /
+   `:clearance-insufficient`: *I cannot tell when you are destroying
+   this* and *you are destroying this too early* are different facts.
 
 Also HARD: unregistered/foreign record, unregistered organization,
 non-`:propose` effect. Escalations (always human sign-off):
