@@ -95,3 +95,84 @@
         v (governor/check req {} (assoc (destroy 500) :confidence 0.3) st)]
     (is (not (:hard? v)))
     (is (:escalate? v))))
+
+;; ── Comparability: a floor that cannot be compared is not a floor that
+;; has been met ────────────────────────────────────────────────────────
+;;
+;; Every test above supplies both operands of the comparison. That is
+;; what let both HARD invariants be bypassed by *omitting* a field:
+;; measured 2026-09-10 on the version before this block existed, a
+;; destruction proposal with no `:as-of-day` and an access proposal with
+;; no `:requester-clearance-level` both returned `{:ok? true}` against a
+;; record registered at day 400 / `:internal`, and an off-scale level
+;; threw a NullPointerException out of the governor instead of holding.
+;;
+;; These pin the rule literals, not just `:hard?`. A refusal that fires
+;; for the wrong reason is not this invariant doing its job, and
+;; asserting only `:hard?` cannot tell the two apart.
+
+(defn- store-with-record [r]
+  (let [st (store/mem-store)]
+    (store/register-client! st {:client-id "client-1" :name "Kobo Trade"})
+    (store/register-record! st (merge {:record-id "R-1" :client-id "client-1"} r))
+    st))
+
+(deftest hard-on-destruction-without-a-day
+  (testing "omitting the clock does not exempt a destruction from the clock"
+    (let [st (fresh-store)
+          v (governor/check req {} (dissoc (destroy 500) :as-of-day) st)]
+      (is (:hard? v))
+      (is (some #(= :retention-unverifiable (:rule %)) (:violations v))))))
+
+(deftest hard-on-destruction-with-an-uncomparable-day
+  (testing "a day that is not an integer is uncomparable, not lenient"
+    (let [st (fresh-store)
+          v (governor/check req {} (assoc (destroy 500) :as-of-day "400") st)]
+      (is (:hard? v))
+      (is (some #(= :retention-unverifiable (:rule %)) (:violations v))))))
+
+(deftest hard-on-record-registered-without-an-expiry
+  (testing "the floor is uncomparable from the record's side too"
+    (let [st (store-with-record {:required-clearance-level :internal})
+          v (governor/check req {} (destroy 500) st)]
+      (is (:hard? v))
+      (is (some #(= :retention-unverifiable (:rule %)) (:violations v))))))
+
+(deftest hard-on-access-without-a-clearance
+  (testing "omitting the clearance does not exempt an access from the ordinal"
+    (let [st (fresh-store)
+          v (governor/check req {} (dissoc (access :internal) :requester-clearance-level) st)]
+      (is (:hard? v))
+      (is (some #(= :clearance-unverifiable (:rule %)) (:violations v))))))
+
+(deftest hard-on-access-with-an-off-scale-clearance
+  (testing "an unregistered level is off the scale, and refused rather than thrown"
+    (let [st (fresh-store)
+          v (governor/check req {} (access :secret) st)]
+      (is (:hard? v))
+      (is (some #(= :clearance-unverifiable (:rule %)) (:violations v))))))
+
+(deftest hard-on-record-registered-without-a-required-level
+  (testing "the ordinal is uncomparable from the record's side too"
+    (let [st (store-with-record {:retention-expiry-day 400})
+          v (governor/check req {} (access :confidential) st)]
+      (is (:hard? v))
+      (is (some #(= :clearance-unverifiable (:rule %)) (:violations v))))))
+
+(deftest uncomparable-and-breached-are-different-refusals
+  (testing "`I cannot tell when` and `too early` must not collapse into one rule"
+    (let [st (fresh-store)
+          rules (fn [p] (into #{} (map :rule) (:violations (governor/check req {} p st))))]
+      ;; too early: the comparison ran and the floor was breached
+      (is (= #{:retention-not-expired} (rules (destroy 100))))
+      ;; uncomparable: the comparison could not run at all
+      (is (= #{:retention-unverifiable} (rules (dissoc (destroy 100) :as-of-day))))
+      (is (= #{:clearance-insufficient} (rules (access :public))))
+      (is (= #{:clearance-unverifiable} (rules (access :secret)))))))
+
+(deftest comparable-proposals-are-still-admitted
+  (testing "fail-closed on uncomparable operands did not close the door on valid ones"
+    (let [st (fresh-store)]
+      ;; exactly on both boundaries — the discriminating case for `<`
+      (is (:ok? (governor/check req {} (destroy 400) st)))
+      (is (:ok? (governor/check req {} (access :internal) st))))))
