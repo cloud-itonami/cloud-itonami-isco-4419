@@ -1,5 +1,5 @@
 (ns clericalsupport.governor-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [clericalsupport.store :as store]
             [clericalsupport.governor :as governor]))
 
