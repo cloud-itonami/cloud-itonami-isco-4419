@@ -2,7 +2,7 @@
   "ClericalSupportWorkersGovernor — the independent safety/
   traceability layer for the ISCO-08 4419 community clerical support
   workers (NEC) actor (itonami actor pattern, ADR-2607011000 /
-  CLAUDE.md Actors section). Modeled on cloud-itonami-isco-4311's
+  AGENTS.md Actors section). Modeled on cloud-itonami-isco-4311's
   bookkeeping.governor. Records-management twist: destruction before
   the registered retention-expiry day is prohibited (records exist
   until the clock says otherwise, not until convenience says
@@ -53,7 +53,7 @@
   Both HARD invariants were therefore bypassable by leaving the field
   out — the cheapest thing an advisor can do wrong — and an
   unregistered level crashed the `:govern` node rather than holding,
-  so nothing reached the ledger at all. This is CLAUDE.md's first of
+  so nothing reached the ledger at all. This is AGENTS.md's first of
   the eight questions: what does the check return when the input is
   absent? Returning the same value as a check that ran and found
   nothing wrong is the defect.
